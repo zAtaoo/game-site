@@ -37,6 +37,10 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="小游戏乐园 API", version="1.0.0")
 
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "小游戏乐园 API", "version": "1.0.0"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
