@@ -69,6 +69,7 @@
     <RewardEffect 
       :show="showReward" 
       :points="rewardPoints"
+      :current-score="score"
       @complete="hideReward"
     />
   </div>

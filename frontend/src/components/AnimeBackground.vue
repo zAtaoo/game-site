@@ -1,7 +1,12 @@
 <template>
   <div class="anime-background">
-    <!-- 渐变背景层 -->
-    <div class="gradient-layer"></div>
+    <!-- 动态GIF背景层 -->
+    <div class="gif-background">
+      <img :src="currentGif" alt="anime background" class="bg-gif" />
+    </div>
+    
+    <!-- 渐变遮罩层 -->
+    <div class="gradient-overlay"></div>
     
     <!-- 星空层 -->
     <div class="stars-layer">
@@ -36,11 +41,6 @@
       ></div>
     </div>
     
-    <!-- 速度线层 -->
-    <div class="speedlines-layer">
-      <div class="speedline" v-for="i in 8" :key="i" :style="{ '--i': i }"></div>
-    </div>
-    
     <!-- 魔法圆环层 -->
     <div class="magic-rings">
       <div class="magic-ring ring-1"></div>
@@ -60,11 +60,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+const gifUrls = [
+  'https://c-ssl.duitang.com/uploads/blog/202109/10/20210910181926_91340.gif',
+  'https://s1.aigei.com/src/img/gif/b5/b597e1bb014b4e849709e31355413213.gif?e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:9pq6hOBvQ2X23l2WM8UpGB10Ivo='
+]
+
+const currentGif = ref(gifUrls[0])
 const stars = ref([])
 const sakuraPetals = ref([])
 
 const generateStars = () => {
-  const starCount = 80
+  const starCount = 60
   for (let i = 0; i < starCount; i++) {
     stars.value.push({
       id: i,
@@ -78,7 +84,7 @@ const generateStars = () => {
 }
 
 const generateSakura = () => {
-  const petalCount = 30
+  const petalCount = 25
   for (let i = 0; i < petalCount; i++) {
     sakuraPetals.value.push({
       id: i,
@@ -94,6 +100,11 @@ const generateSakura = () => {
 onMounted(() => {
   generateStars()
   generateSakura()
+  
+  // 定时切换GIF背景
+  setInterval(() => {
+    currentGif.value = gifUrls[Math.floor(Math.random() * gifUrls.length)]
+  }, 30000)
 })
 </script>
 
@@ -108,8 +119,29 @@ onMounted(() => {
   z-index: -1;
 }
 
-/* 渐变背景 */
-.gradient-layer {
+/* GIF背景层 */
+.gif-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bg-gif {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: gif-pulse 8s ease-in-out infinite;
+}
+
+@keyframes gif-pulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* 渐变遮罩层 */
+.gradient-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -117,11 +149,11 @@ onMounted(() => {
   height: 100%;
   background: linear-gradient(
     135deg,
-    #0a0a1a 0%,
-    #1a1a3a 25%,
-    #2a1a4a 50%,
-    #1a1a3a 75%,
-    #0a0a1a 100%
+    rgba(10, 10, 26, 0.7) 0%,
+    rgba(26, 26, 58, 0.6) 25%,
+    rgba(42, 26, 74, 0.6) 50%,
+    rgba(26, 26, 58, 0.6) 75%,
+    rgba(10, 10, 26, 0.7) 100%
   );
 }
 
@@ -183,36 +215,6 @@ onMounted(() => {
     transform: translateY(110vh) rotate(360deg) translateX(-20px);
     opacity: 0;
   }
-}
-
-/* 速度线层 */
-.speedlines-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.speedline {
-  position: absolute;
-  width: 2px;
-  height: 100%;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 100%
-  );
-  left: calc(var(--i) * 12.5%);
-  animation: speedline 4s ease-in-out infinite;
-  animation-delay: calc(var(--i) * 0.3s);
-}
-
-@keyframes speedline {
-  0%, 100% { opacity: 0; transform: translateY(-100%); }
-  50% { opacity: 0.5; transform: translateY(200%); }
 }
 
 /* 魔法圆环层 */
@@ -278,7 +280,7 @@ onMounted(() => {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.4;
+  opacity: 0.3;
   animation: orb-float 15s ease-in-out infinite;
 }
 
