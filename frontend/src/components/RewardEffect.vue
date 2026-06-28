@@ -1,10 +1,5 @@
 <template>
   <div v-if="show" class="reward-overlay" :class="rewardTheme">
-    <!-- 奖励特效GIF背景 -->
-    <div class="reward-gif-bg">
-      <img :src="currentRewardGif" alt="reward effect" class="gif-bg" />
-    </div>
-    
     <!-- 背景闪烁 -->
     <div class="bg-flash"></div>
     
@@ -121,12 +116,6 @@ const emit = defineEmits(['complete'])
 const rewardStars = ref([])
 const sparks = ref([])
 const confettiItems = ref([])
-const currentRewardGif = ref('')
-
-const rewardGifUrls = [
-  'https://s1.aigei.com/src/img/gif/f3/f3dacc343d6742f5b9eb2d7496b8907b.gif?e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:mOkCSWIgt0A6g5BlUzsq82ANp-A=',
-  'https://s1.aigei.com/src/img/gif/83/83ea016dc8f54ee7b8c97d10f20aa5e8.gif?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:lrf3WZxviyO1Cz8cx66CXL229JE='
-]
 
 const rewardThemes = [
   {
@@ -241,7 +230,6 @@ const generateConfetti = () => {
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    currentRewardGif.value = rewardGifUrls[Math.floor(Math.random() * rewardGifUrls.length)]
     generateRewardStars()
     generateSparks()
     generateConfetti()
@@ -364,28 +352,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* 奖励特效GIF背景 */
-.reward-gif-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.gif-bg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  animation: gif-pulse 3s ease-in-out infinite;
-}
-
-@keyframes gif-pulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.05); }
 }
 
 /* 背景闪烁 */

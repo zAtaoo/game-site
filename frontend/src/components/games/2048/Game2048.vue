@@ -5,47 +5,43 @@
     tabindex="0"
     @click="handleClick"
   >
-    <!-- 随机装饰GIF -->
-    <div class="anime-decorations">
+    <!-- 方块合并特效 -->
+    <div class="merge-effects">
       <div 
-        v-for="decor in animeDecorations" 
-        :key="decor.id" 
-        class="anime-decoration"
+        v-for="effect in mergeEffects" 
+        :key="effect.id" 
+        class="merge-effect"
         :style="{
-          left: decor.x + '%',
-          top: decor.y + '%',
-          '--delay': decor.delay + 's',
-          '--duration': decor.duration + 's'
+          left: effect.x + '%',
+          top: effect.y + '%',
+          '--value': effect.value,
+          '--color': effect.color
         }"
-      >
-        <img :src="decor.gif" alt="anime decoration" class="decor-gif" />
-      </div>
+      >+{{ effect.value }}</div>
     </div>
     
-    <!-- 动漫角色表情 -->
-    <div class="anime-character">
-      <div class="character-face">{{ currentEmoji }}</div>
-      <div class="character-bubble" v-if="showBubble">{{ bubbleText }}</div>
-    </div>
-    
-    <!-- 特效文字 -->
-    <div class="effect-texts">
+    <!-- 方块出现特效 -->
+    <div class="appear-effects">
       <div 
-        v-for="text in effectTexts" 
-        :key="text.id" 
-        class="effect-text"
+        v-for="effect in appearEffects" 
+        :key="effect.id" 
+        class="appear-effect"
         :style="{
-          left: text.x + '%',
-          top: text.y + '%',
-          '--color': text.color
+          left: effect.x + '%',
+          top: effect.y + '%',
+          '--size': effect.size + 'px'
         }"
-      >{{ text.text }}</div>
+      ></div>
     </div>
     
+    <!-- 游戏状态提示 -->
+    <div class="game-toast" v-if="showToast">{{ toastMessage }}</div>
+
     <canvas 
       ref="canvasRef" 
       @touchstart="handleTouchStart"
       @touchend="handleTouchEnd"
+      @touchmove="handleTouchMove"
       class="game-canvas"
     ></canvas>
     
@@ -74,7 +70,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
-const emit = defineEmits(['score-update', 'game-over', 'game-win', 'show-reward'])
+const emit = defineEmits(['score-update', 'game-over', 'game-win', 'show-reward', 'combo'])
 
 const canvasRef = ref(null)
 const gameContainer = ref(null)
@@ -91,77 +87,12 @@ const grid = ref([])
 const history = ref([])
 const lastRewardScore = ref(0)
 const isGameActive = ref(true)
-
-// 动漫装饰GIF
-const decorGifUrls = [
-  'https://s1.aigei.com/src/img/gif/cf/cfc0f24c2a4648918c766b4cfccf79ba.gif?e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:Rt8wq3hdSb6ekn8sBJJwheIFVlk=',
-  'https://s1.aigei.com/src/img/gif/2c/2c1d291638d24ba5869a2da266457d2b.gif?e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:iCowZcNL2MaLShjuzKd39k5I4zA=',
-  'https://s1.aigei.com/src/img/gif/ed/ed67aa22ff054fda9d3a456778086158.gif?e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:ZJklG1KOe5SmYAgkL-zdIGBHdkw=',
-  'https://s1.aigei.com/src/img/gif/04/04ce71e66f5d47dabaaba2b09d8150e9.gif?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:AdHiuK9AHm2O1bin5ygIOtUEzdg=',
-  'https://s1.aigei.com/src/img/gif/6f/6f7fed9414d54d8e952dbe4e982df39b.gif?imageMogr2/auto-orient/thumbnail/!282x282r/gravity/Center/crop/282x282/quality/85/%7CimageView2/2/w/282&e=2051020800&token=P7S2Xpzfz11vAkASLTkfHN7Fw-oOZBecqeJaxypL:w6BAnzNCh4t4eO5wjweuD9do95k='
-]
-
-const animeDecorations = ref([])
-const effectTexts = ref([])
-const currentEmoji = ref('😊')
-const showBubble = ref(false)
-const bubbleText = ref('')
-
-const characterEmojis = {
-  happy: ['😊', '😄', '😆', '🥰', '🤩', '😎'],
-  excited: ['😍', '🤯', '🥳', '😱', '🤗'],
-  sad: ['😢', '😔', '😞', '😿'],
-  thinking: ['🤔', '🧐', '😌']
-}
-
-const bubbleTexts = {
-  happy: ['太棒了!', '厉害!', '完美!', 'Nice!', 'Amazing!'],
-  excited: ['哇!', '超酷!', '太厉害了!', '难以置信!', 'OMG!'],
-  sad: ['加油!', '别放弃!', '再来一次!', '不要气馁!'],
-  thinking: ['想想策略...', '下一步怎么走?', '冷静思考']
-}
-
-const effectColors = ['#FFD700', '#FF6B9D', '#00FFFF', '#A855F7', '#4ECDC4', '#FF6347']
-
-const generateDecorations = () => {
-  const count = Math.floor(Math.random() * 3) + 1
-  animeDecorations.value = []
-  for (let i = 0; i < count; i++) {
-    animeDecorations.value.push({
-      id: Date.now() + i,
-      x: Math.random() * 90 + 5,
-      y: Math.random() * 90 + 5,
-      gif: decorGifUrls[Math.floor(Math.random() * decorGifUrls.length)],
-      delay: Math.random() * 2,
-      duration: Math.random() * 3 + 4
-    })
-  }
-}
-
-const addEffectText = (text, x, y) => {
-  const newText = {
-    id: Date.now(),
-    text,
-    x: x || Math.random() * 80 + 10,
-    y: y || Math.random() * 80 + 10,
-    color: effectColors[Math.floor(Math.random() * effectColors.length)]
-  }
-  effectTexts.value.push(newText)
-  setTimeout(() => {
-    effectTexts.value = effectTexts.value.filter(t => t.id !== newText.id)
-  }, 2000)
-}
-
-const updateCharacter = (type) => {
-  const emojis = characterEmojis[type] || characterEmojis.happy
-  const texts = bubbleTexts[type] || bubbleTexts.happy
-  currentEmoji.value = emojis[Math.floor(Math.random() * emojis.length)]
-  bubbleText.value = texts[Math.floor(Math.random() * texts.length)]
-  showBubble.value = true
-  setTimeout(() => {
-    showBubble.value = false
-  }, 2000)
-}
+const comboCount = ref(0)
+const comboTimer = ref(null)
+const mergeEffects = ref([])
+const appearEffects = ref([])
+const showToast = ref(false)
+const toastMessage = ref('')
 
 const colors = {
   0: '#cdc1b4',
@@ -201,9 +132,9 @@ const initGrid = () => {
   history.value = []
   lastRewardScore.value = 0
   isGameActive.value = true
-  currentEmoji.value = '😊'
-  effectTexts.value = []
-  generateDecorations()
+  comboCount.value = 0
+  mergeEffects.value = []
+  appearEffects.value = []
   addRandomTile()
   addRandomTile()
   emit('score-update', score.value)
@@ -228,11 +159,109 @@ const addRandomTile = () => {
     const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)]
     const newValue = Math.random() < 0.9 ? 2 : 4
     grid.value[randomCell.row][randomCell.col] = newValue
-    
-    if (Math.random() < 0.3) {
-      addEffectText(newValue === 4 ? '✨' : '🌟', (randomCell.col + 0.5) * 25, (randomCell.row + 0.5) * 25)
-    }
+    addAppearEffect(randomCell.col, randomCell.row)
+    playSound('appear', newValue === 4 ? 0.8 : 0.5)
   }
+}
+
+const addAppearEffect = (col, row) => {
+  const effect = {
+    id: Date.now() + Math.random(),
+    x: (col + 0.5) * 25,
+    y: (row + 0.5) * 25,
+    size: cellSize
+  }
+  appearEffects.value.push(effect)
+  setTimeout(() => {
+    appearEffects.value = appearEffects.value.filter(e => e.id !== effect.id)
+  }, 500)
+}
+
+const addMergeEffect = (col, row, value) => {
+  const effect = {
+    id: Date.now() + Math.random(),
+    x: (col + 0.5) * 25,
+    y: (row + 0.5) * 25,
+    value,
+    color: colors[value] || '#3c3a32'
+  }
+  mergeEffects.value.push(effect)
+  setTimeout(() => {
+    mergeEffects.value = mergeEffects.value.filter(e => e.id !== effect.id)
+  }, 800)
+}
+
+const showToastMessage = (message) => {
+  toastMessage.value = message
+  showToast.value = true
+  setTimeout(() => {
+    showToast.value = false
+  }, 1500)
+}
+
+const playSound = (type, volume = 0.1) => {
+  if (!window.audioContext) {
+    window.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  const ctx = window.audioContext
+  const now = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  
+  gain.gain.setValueAtTime(volume, now)
+  
+  if (type === 'move') {
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(200 + Math.random() * 100, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+    osc.start(now)
+    osc.stop(now + 0.1)
+  } else if (type === 'merge') {
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(400, now)
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  } else if (type === 'appear') {
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(600, now)
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.1)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
+    osc.start(now)
+    osc.stop(now + 0.15)
+  } else if (type === 'win') {
+    osc.type = 'sine'
+    const notes = [523.25, 659.25, 783.99, 1046.50]
+    notes.forEach((freq, i) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.value = freq
+      g.gain.setValueAtTime(0.1, now + i * 0.15)
+      g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3)
+      o.connect(g)
+      g.connect(ctx.destination)
+      o.start(now + i * 0.15)
+      o.stop(now + i * 0.15 + 0.3)
+    })
+  } else if (type === 'lose') {
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(300, now)
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.5)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
+    osc.start(now)
+    osc.stop(now + 0.5)
+  } else if (type === 'combo') {
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(800 + comboCount.value * 100, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+    osc.start(now)
+    osc.stop(now + 0.1)
+  }
+  
+  osc.connect(gain)
+  gain.connect(ctx.destination)
 }
 
 const saveState = () => {
@@ -256,8 +285,20 @@ const undo = () => {
     isGameActive.value = true
     emit('score-update', score.value)
     draw()
-    updateCharacter('thinking')
   }
+}
+
+const updateCombo = () => {
+  comboCount.value++
+  emit('combo', comboCount.value)
+  if (comboTimer.value) {
+    clearTimeout(comboTimer.value)
+  }
+  comboTimer.value = setTimeout(() => {
+    comboCount.value = 0
+    emit('combo', 0)
+  }, 2000)
+  playSound('combo')
 }
 
 const move = (direction) => {
@@ -267,57 +308,119 @@ const move = (direction) => {
   
   let moved = false
   let merged = false
+  let scoreGained = 0
+  let mergedPositions = []
+  let won = false
+  let highMergeValue = 0
+  
   const newGrid = grid.value.map(row => [...row])
+  
+  const processLine = (line) => {
+    const filtered = line.filter(item => item.value !== 0)
+    const result = []
+    const positions = []
+    let lineMerged = false
+    let lineScore = 0
+    
+    let i = 0
+    while (i < filtered.length) {
+      if (i + 1 < filtered.length && filtered[i].value === filtered[i + 1].value) {
+        const newValue = filtered[i].value * 2
+        result.push({ value: newValue, merged: true })
+        lineScore += newValue
+        lineMerged = true
+        positions.push(result.length - 1)
+        
+        if (newValue > highMergeValue) {
+          highMergeValue = newValue
+        }
+        
+        if (newValue === 2048 && !gameWon.value) {
+          won = true
+        }
+        
+        i += 2 // Skip next element as it's merged
+      } else {
+        result.push({ value: filtered[i].value, merged: false })
+        i++
+      }
+    }
+    
+    while (result.length < gridSize) {
+      result.push({ value: 0, merged: false })
+    }
+    
+    return { line: result, merged: lineMerged, score: lineScore, positions }
+  }
   
   if (direction === 'up') {
     for (let col = 0; col < gridSize; col++) {
       const column = []
       for (let row = 0; row < gridSize; row++) {
-        if (newGrid[row][col] !== 0) {
-          column.push(newGrid[row][col])
-        }
+        column.push({ value: newGrid[row][col], row, col })
       }
-      const result = merge(column)
+      const result = processLine(column)
       merged = merged || result.merged
+      scoreGained += result.score
+      result.positions.forEach(pos => {
+        mergedPositions.push({ col, row: pos })
+      })
       for (let row = 0; row < gridSize; row++) {
-        newGrid[row][col] = result.line[row] || 0
+        newGrid[row][col] = result.line[row].value
       }
     }
   } else if (direction === 'down') {
     for (let col = 0; col < gridSize; col++) {
       const column = []
       for (let row = gridSize - 1; row >= 0; row--) {
-        if (newGrid[row][col] !== 0) {
-          column.push(newGrid[row][col])
-        }
+        column.push({ value: newGrid[row][col], row, col })
       }
-      const result = merge(column)
+      const result = processLine(column)
       merged = merged || result.merged
+      scoreGained += result.score
+      result.positions.forEach(pos => {
+        mergedPositions.push({ col, row: gridSize - 1 - pos })
+      })
       for (let row = gridSize - 1; row >= 0; row--) {
-        newGrid[row][col] = result.line[gridSize - 1 - row] || 0
+        newGrid[row][col] = result.line[gridSize - 1 - row].value
       }
     }
   } else if (direction === 'left') {
     for (let row = 0; row < gridSize; row++) {
-      const line = newGrid[row].filter(cell => cell !== 0)
-      const result = merge(line)
-      merged = merged || result.merged
+      const line = []
       for (let col = 0; col < gridSize; col++) {
-        newGrid[row][col] = result.line[col] || 0
+        line.push({ value: newGrid[row][col], row, col })
+      }
+      const result = processLine(line)
+      merged = merged || result.merged
+      scoreGained += result.score
+      result.positions.forEach(pos => {
+        mergedPositions.push({ col: pos, row })
+      })
+      for (let col = 0; col < gridSize; col++) {
+        newGrid[row][col] = result.line[col].value
       }
     }
   } else if (direction === 'right') {
     for (let row = 0; row < gridSize; row++) {
-      const line = newGrid[row].filter(cell => cell !== 0).reverse()
-      const result = merge(line)
+      const line = []
+      for (let col = gridSize - 1; col >= 0; col--) {
+        line.push({ value: newGrid[row][col], row, col })
+      }
+      const result = processLine(line)
       merged = merged || result.merged
+      scoreGained += result.score
+      result.positions.forEach(pos => {
+        mergedPositions.push({ col: gridSize - 1 - pos, row })
+      })
       const mergedLine = result.line.reverse()
       for (let col = 0; col < gridSize; col++) {
-        newGrid[row][col] = mergedLine[col] || 0
+        newGrid[row][col] = mergedLine[col].value
       }
     }
   }
   
+  // Check if anything moved
   for (let i = 0; i < gridSize; i++) {
     for (let j = 0; j < gridSize; j++) {
       if (grid.value[i][j] !== newGrid[i][j]) {
@@ -330,55 +433,67 @@ const move = (direction) => {
   
   if (moved) {
     grid.value = newGrid
+    score.value += scoreGained
+    
+    if (won) {
+      gameWon.value = true
+      playSound('win')
+      showToastMessage('🎉 恭喜合成2048!')
+      emit('game-win')
+    }
+    else if (highMergeValue >= 128) {
+      showToastMessage(`🔥 +${highMergeValue}!`)
+    }
+    
     addRandomTile()
     
-    if (merged && Math.random() < 0.5) {
-      updateCharacter('happy')
+    if (merged) {
+      updateCombo()
+      mergedPositions.forEach(pos => {
+        const value = grid.value[pos.row][pos.col]
+        addMergeEffect(pos.col, pos.row, value)
+      })
+      playSound('merge')
+    } else {
+      playSound('move')
     }
     
-    checkGameState()
     emit('score-update', score.value)
+    checkGameState()
     draw()
   } else {
-    history.value.pop()
-    if (!canMove()) {
-      gameOver.value = true
-      isGameActive.value = false
-      updateCharacter('sad')
-      emit('game-over')
+    // Restore state if no movement occurred
+    if (history.value.length > 0) {
+      const prevState = history.value.pop()
+      grid.value = prevState.grid
+      score.value = prevState.score
+      gameWon.value = prevState.gameWon
     }
+    playSound('move', 0.05)
   }
 }
 
 const merge = (line) => {
-  const mergedLine = []
-  let merged = false
+  const merged = []
   let i = 0
   
   while (i < line.length) {
     if (i + 1 < line.length && line[i] === line[i + 1]) {
       const newValue = line[i] * 2
-      mergedLine.push(newValue)
+      merged.push(newValue)
       score.value += newValue
-      merged = true
-      
       if (newValue === 2048 && !gameWon.value) {
         gameWon.value = true
-        updateCharacter('excited')
-        addEffectText('🏆', 50, 50)
         emit('game-win')
-      } else if (newValue >= 128) {
-        addEffectText(`+${newValue}`, Math.random() * 80 + 10, Math.random() * 80 + 10)
       }
-      
       i += 2
     } else {
-      mergedLine.push(line[i])
+      merged.push(line[i])
       i++
     }
   }
   
-  return { line: mergedLine, merged }
+  return merged
 }
 
 const canMove = () => {
@@ -402,7 +517,6 @@ const checkGameState = () => {
   if (!canMove()) {
     gameOver.value = true
     isGameActive.value = false
-    updateCharacter('sad')
     emit('game-over')
   }
 }
@@ -438,7 +552,12 @@ const draw = () => {
 }
 
 const handleKeydown = (e) => {
-  if (!isGameActive.value || gameOver.value) return
+  if (!isGameActive.value || gameOver.value) {
+    if (e.key === 'r' || e.key === 'R') {
+      restart()
+    }
+    return
+  }
   
   switch (e.key) {
     case 'ArrowUp':
@@ -464,6 +583,11 @@ const handleKeydown = (e) => {
     case 'D':
       e.preventDefault()
       move('right')
+      break
+    case 'r':
+    case 'R':
+      e.preventDefault()
+      restart()
       break
   }
 }
@@ -527,16 +651,23 @@ onMounted(() => {
   
   window.addEventListener('keydown', handleKeydown)
   
-  // 定时刷新装饰
-  setInterval(() => {
-    if (isGameActive.value && !gameOver.value) {
-      generateDecorations()
+  // Initialize audio context on first interaction
+  const initAudio = () => {
+    if (!window.audioContext) {
+      window.audioContext = new (window.AudioContext || window.webkitAudioContext)()
     }
-  }, 15000)
+    document.removeEventListener('click', initAudio)
+    document.removeEventListener('touchstart', initAudio)
+  }
+  document.addEventListener('click', initAudio)
+  document.addEventListener('touchstart', initAudio)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  if (comboTimer.value) {
+    clearTimeout(comboTimer.value)
+  }
 })
 
 watch(score, (newScore) => {
@@ -554,7 +685,8 @@ watch(score, (newScore) => {
 
 defineExpose({
   restart,
-  undo
+  undo,
+  score
 })
 </script>
 
@@ -563,6 +695,8 @@ defineExpose({
   position: relative;
   outline: none;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .game-2048:focus {
@@ -570,94 +704,46 @@ defineExpose({
 }
 
 .game-canvas {
-  border-radius: 10px;
+  border-radius: 15px;
   display: block;
   position: relative;
   z-index: 10;
+  transition: transform 0.1s ease;
 }
 
-/* 随机装饰GIF */
-.anime-decorations {
+.game-canvas:active {
+  transform: scale(0.98);
+}
+
+/* 合并特效 */
+.merge-effects {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 5;
-}
-
-.anime-decoration {
-  position: absolute;
-  animation: decor-float var(--duration) ease-in-out infinite;
-  animation-delay: var(--delay);
-}
-
-.decor-gif {
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-}
-
-@keyframes decor-float {
-  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 0.6; }
-  25% { transform: translateY(-10px) rotate(5deg) scale(1.1); opacity: 0.8; }
-  50% { transform: translateY(-5px) rotate(-5deg) scale(0.9); opacity: 0.7; }
-  75% { transform: translateY(-15px) rotate(10deg) scale(1.05); opacity: 0.8; }
-}
-
-/* 动漫角色表情 */
-.anime-character {
-  position: absolute;
-  top: -20px;
-  right: -80px;
   z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
-.character-face {
-  font-size: 48px;
-  animation: face-bounce 2s ease-in-out infinite;
-}
-
-@keyframes face-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
-}
-
-.character-bubble {
-  background: white;
-  padding: 8px 15px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-  margin-top: 5px;
-  position: relative;
-  animation: bubble-appear 0.3s ease-out;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.character-bubble::before {
-  content: '';
+.merge-effect {
   position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 8px 8px 0;
-  border-style: solid;
-  border-color: white transparent transparent;
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--color);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px var(--color);
+  animation: merge-pop 0.8s ease-out forwards;
+  white-space: nowrap;
 }
 
-@keyframes bubble-appear {
-  from { opacity: 0; transform: translateY(10px) scale(0.8); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes merge-pop {
+  0% { opacity: 0; transform: scale(0) translateY(0); }
+  30% { opacity: 1; transform: scale(1.5) translateY(-20px); }
+  100% { opacity: 0; transform: scale(1) translateY(-60px); }
 }
 
-/* 特效文字 */
-.effect-texts {
+/* 出現特效 */
+.appear-effects {
   position: absolute;
   top: 0;
   left: 0;
@@ -667,22 +753,46 @@ defineExpose({
   z-index: 15;
 }
 
-.effect-text {
+.appear-effect {
   position: absolute;
-  font-size: 28px;
+  width: var(--size);
+  height: var(--size);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  animation: appear-pulse 0.5s ease-out forwards;
+}
+
+@keyframes appear-pulse {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+
+/* Toast提示 */
+.game-toast {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 15px 30px;
+  border-radius: 25px;
+  font-size: 1.5rem;
   font-weight: bold;
-  color: var(--color);
-  text-shadow: 0 0 10px var(--color), 0 0 20px var(--color);
-  animation: text-float 2s ease-out forwards;
+  z-index: 50;
+  animation: toast-fade 1.5s ease-out forwards;
+  pointer-events: none;
+  text-shadow: 0 0 20px rgba(255, 230, 109, 0.8);
 }
 
-@keyframes text-float {
-  0% { opacity: 0; transform: scale(0) translateY(0); }
-  20% { opacity: 1; transform: scale(1.5) translateY(-10px); }
-  100% { opacity: 0; transform: scale(1) translateY(-50px); }
+@keyframes toast-fade {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  30% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
-/* 游戏覆盖层 */
 .game-overlay {
   position: absolute;
   top: 0;
@@ -692,12 +802,12 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  z-index: 100;
+  border-radius: 15px;
+  z-index: 10;
 }
 
 .game-overlay.win {
-  background: rgba(237, 194, 46, 0.85);
+  background: rgba(237, 194, 46, 0.8);
   animation: fadeIn 0.3s ease;
 }
 
@@ -715,6 +825,10 @@ defineExpose({
   text-align: center;
   color: #776e65;
   animation: scaleIn 0.3s ease;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 40px;
+  border-radius: 25px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 @keyframes scaleIn {
@@ -722,21 +836,9 @@ defineExpose({
   to { transform: scale(1); opacity: 1; }
 }
 
-.overlay-emoji {
-  font-size: 4rem;
-  animation: emoji-bounce 0.5s ease-out;
-}
-
-@keyframes emoji-bounce {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.5); }
-  100% { transform: scale(1); }
-}
-
 .overlay-content h2 {
   font-size: 2.5rem;
   margin-bottom: 15px;
-  margin-top: 10px;
 }
 
 .overlay-content p {
@@ -747,6 +849,11 @@ defineExpose({
 .current-score {
   font-size: 1.2rem;
   color: #776e65;
+}
+
+.overlay-emoji {
+  font-size: 4rem;
+  margin-bottom: 10px;
 }
 
 .overlay-content button {
